@@ -1,2 +1,2 @@
-# NikeAjax.
-Nike Ajax
+# NikeAjax
+Nike Ajax 54744A
