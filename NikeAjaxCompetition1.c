@@ -14,7 +14,8 @@
 #pragma platform(VEX2)
 #pragma competitionControl(Competition)
 
-/*Nike Ajax
+/*
+Nike Ajax
 54744A
 Bishop Kelly High School, Boise, Idaho
 */
@@ -58,47 +59,122 @@ void pre_auton()
 task autonomous()
 {
   // ..........................................................................
- 	//foward
+ 		//accelerate flyeheel over 5 seconds	
+	while(time1[T3]<5000){
+		for(int i = 0; i <= 5; i++){
+			motor[flywheel1] = (i*25.4);
+			motor[flywheel2] = (i*25.4);
+			wait1Msec(1000);
+		}
+	}
+	clearTimer(T3);
+	motor[flywheel1] = 127;
+	motor[flywheel2] = 127;//not sure if this will keep the motors running until otherwise told
+	
+	//forward 2 tiles and collect ball
 	motor[rightDrive] = 127;
 	motor[leftDrive] = 127;
 	motor[intake] = 127;
 
-	wait1Msec(2000);
+	wait1Msec(2300);
 
-	//backward
+	//backward 2 tiles
 	motor[rightDrive] = -127;
 	motor[leftDrive] = -127;
-	motor [intake] = 127;
+	motor [intake] = 63;
 
-	wait1Msec(2000);
-
-	//turn
+	wait1Msec(2300);
+	
+	//turn 90 degrees
+	//color dependent
 	motor[rightDrive] = 127;
 	motor[leftDrive] = -127;
 
-	wait1Msec(500);
+	wait1Msec(500);//theta
 
-	//foward and fire
-	while(time1[T1]<3000){
-	motor[rightDrive] = 127;
-	motor[leftDrive] = 127;
+	//forward 2 tiles
+	while(time1[T1]<2300){
+		motor[rightDrive] = 127;
+		motor[leftDrive] = 127;
 	}
 	clearTimer(T1);
 	
-	while(time1[T2]<3000){
-	motor[intake] = 127;
-	motor[indexer] = 127;
-	motor[flywheel1] = 127;
-	motor[flywheel2] = 127;
+	//fire
+	while(time1[T2]<2300){
+		motor[intake] = 127;
+		motor[indexer] = 127;
+		motor[flywheel1] = 127;
+		motor[flywheel2] = 127;
 	}
 	clearTimer(T2);
 	
-	//backward	
+	wait1Msec(2000);
+	
+	//deaccelerate flywheel over 10 seconds	
+	while(time1[T4]<10000){
+		for(int i = 10; i >= 0; i--){
+			motor[flywheel1] = (i*12.7);
+			motor[flywheel2] = (i*12.7);
+			wait1Msec(1000);
+		}
+	}
+	//clearTimer[T4];????
+	
+	//backward 1 tile
 	motor[rightDrive] = -127;
 	motor[leftDrive] = -127;
 
-	wait1Msec(2000);
+	wait1Msec(1150);
 	
+	//turn -90 degrees
+	//color dependent
+	motor[rightDrive] = -127;
+	motor[leftDrive] = 127;
+	wait1Msec(500);//theta
+
+	//forward 2 tiles and flip cap
+	motor[rightDrive] = 127;
+	motor[leftDrive] = 127;
+	motor[intake] = 127;
+
+	wait1Msec(2300);
+	
+	//turn 90 degrees
+	motor[rightDrive] = 127;
+	motor[leftDrive] = -127;
+	
+	wait1Msec(500);//theta
+	
+	//forward 1 tile
+	motor[rightDrive] = 127;
+	motor[leftDrive] = 127;
+
+	wait1Msec(1150);
+	
+	//backward 1 tile
+	motor[rightDrive] = -127;
+	motor[leftDrive] = -127;
+
+	wait1Msec(1150);
+	
+	//swerve
+	motor[rightDrive] = -127;
+	motor[leftDrive] = -63;
+
+	wait1Msec(500);//theta2
+	
+	motor[rightDrive] = -63;
+	motor[leftDrive] = -127;
+
+	wait1Msec(500);//theta2
+	
+	//park
+	motor[rightDrive] = -127;
+	motor[leftDrive] = -127;
+
+	wait1Msec(1000);//tbd
+	
+}
   // ..........................................................................
 }
 
