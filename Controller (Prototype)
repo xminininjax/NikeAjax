@@ -1,0 +1,119 @@
+
+task main()
+{
+	int x = 1;
+	while(1>0)
+	{
+	/*
+		if(vexRT[Btn8R])
+		{
+			motor[port3] = 70;
+			motor[port4] = 70;
+			wait1Msec(3000);
+			motor[port4] = 0;
+			motor[port3] = 0;
+			wait1Msec(500);
+			motor[port3] = -70;
+			motor[port4] = -70;
+			wait1Msec(3000);
+		}
+		*/
+		while(x>0){
+			motor[port8] = 20;
+			motor[port9] = 20;
+				wait1Msec(1);
+			motor[port9] = 40;
+			motor[port8] = 40;
+				wait1Msec(1);
+			motor[port9] = 60;
+			motor[port8] = 60;
+		if(vexRT[Btn5U]){
+			motor[port9] = 90;	
+			motor[port8] = 90;
+				wait1Msec(1);
+			motor[port9] = 120;	
+			motor[port8] = 120;
+		}
+		else{
+			motor[port9] = 60;	
+			motor[port8] = 60;
+			}
+		if(vexRT[Btn5D]){
+			motor[port9] = 0;	
+			motor[port8] = 0;
+			x = 0;
+			
+		}
+	
+	}
+		
+		
+	}
+	
+	
+	
+	
+	
+		
+		///////////////
+		if(vexRT[Btn7U]){
+		while(vexRT[Btn7U]){
+			motor[port7] = 100;
+		}
+		motor[port7] = 0;
+	}
+	
+	
+		if(vexRT[Btn7D]){
+		while(vexRT[Btn7D]){
+			motor[port7] = -100;
+		}
+		motor[port7] = 0;
+	}
+	
+		if(vexRT[Btn8U]){
+		while(vexRT[Btn8U]){
+			motor[port8] = 100;
+		}
+		motor[port8] = 0;
+	}
+	
+		if(vexRT[Btn8D]){
+		while(vexRT[Btn8D]){
+			motor[port8] = -100;
+		}
+		motor[port8] = 0;
+	}
+	
+		if(vexRT[Btn6U]){
+		while(vexRT[Btn6U]){
+			motor[port6] = 100;
+		}
+		motor[port6] = 0;
+	}
+		if(vexRT[Btn6D]){
+		while(vexRT[Btn6D]){
+			motor[port6] = -100;
+		}
+		motor[port6] = 0;
+	}
+	/*
+		if(vexRT[Btn5U]){
+		while(vexRT[Btn5U]){
+			motor[port5] = 100;
+		}
+		motor[port5] = 0;
+	}
+	
+		if(vexRT[Btn5D]){
+		while(vexRT[Btn5D]){
+			motor[port5] = -100;
+		}
+		motor[port5] = 0;
+	}
+	*/
+	motor[port2] = vexRT[Ch2];
+  motor[port3] = vexRT[Ch3];
+	
+}
+	
