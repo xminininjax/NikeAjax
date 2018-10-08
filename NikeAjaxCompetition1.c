@@ -56,126 +56,204 @@ void pre_auton()
 /*  You must modify the code to add your own robot specific commands here.   */
 /*---------------------------------------------------------------------------*/
 
-task autonomous()
-{
-  // ..........................................................................
- 		//accelerate flyeheel over 5 seconds	
-	while(time1[T3]<5000){
+task move(){
+	
+//code to input distance/degrees to rotate instead of raw time
+
+/*4 in wheel, 12 ft long arena, 6 tiles, 24 in per tile
+Circum = 4pi move 2 tiles = 48/4pi = #rev = 12/pi = 3.819revs
+100 rpm/ 60 = 5/3 rps
+3.819*(3/5) = 2.29
+2.291831181 secs per 2 tiles
+2.3 secs per 2 tiles
+1.14591559 secper tile
+1.15 sec per tile
+*/
+
+//double == float
+float diameter = 4;
+float circumfrence = diameter*PI;
+
+float targetDistance = 1;//placeholder
+float linearRevs = targetDistance/circumfrence;
+float a = linearRevs*(3/5);//convert rpm to sec
+a = a*1000;//convert to Msec
+
+float robotRadius = 8;//CHANGE
+float degreesRotate = 1;//placeholder
+float arc = (robotRadius*2*PI)/(360/degreesRotate);
+float arcRevs= arc/circumfrence;
+float b = arcRevs*(3/5);
+b = b*1000;
+int i = 0;
+
+i = 0;
+while (i==0){
+	targetDistance = 24;//set distance
+	if (targetDistance>0)
+		motor[rightDrive] = 127;
+		motor[leftDrive] = 127;
+	if (targetDistance<0)
+		motor[rightDrive] = -127;
+		motor[leftDrive] = -127;
+	sleep(a);
+	i++;
+}
+
+
+i = 0;
+while (i==0){
+	targetDistance = -24;//set distance
+	if (targetDistance>0)
+		motor[rightDrive] = 127;
+		motor[leftDrive] = 127;
+	if (targetDistance<0)
+		motor[rightDrive] = -127;
+		motor[leftDrive] = -127;
+	sleep(a);
+	i++;
+}
+
+i=0;
+while (i==0){
+	degreesRotate = -90;//set rotation degrees
+	if (degreesRotate>0)
+		motor[rightDrive] = -127;
+		motor[leftDrive] = 127;
+	if (degreesRotate<0)
+		motor[rightDrive] = 127;
+		motor[leftDrive] = -127;
+		
+	sleep(b);
+	i++;
+}
+
+i = 0;
+while (i==0){
+	targetDistance = 24;//set distance
+	if (targetDistance>0)
+		motor[rightDrive] = 127;
+		motor[leftDrive] = 127;
+	if (targetDistance<0)
+		motor[rightDrive] = -127;
+		motor[leftDrive] = -127;
+	sleep(a);
+	i++;
+}
+
+i = 0;
+while (i==0){
+	targetDistance = -12;//set distance
+	if (targetDistance>0)
+		motor[rightDrive] = 127;
+		motor[leftDrive] = 127;
+	if (targetDistance<0)
+		motor[rightDrive] = -127;
+		motor[leftDrive] = -127;
+	sleep(a);
+	i++;
+}
+
+i=0;
+while (i==0){
+	degreesRotate = 90;//set rotation degrees
+	if (degreesRotate>0)
+		motor[rightDrive] = -127;
+		motor[leftDrive] = 127;
+	if (degreesRotate<0)
+		motor[rightDrive] = 127;
+		motor[leftDrive] = -127;
+		
+	sleep(b);
+	i++;
+}
+
+i = 0;
+while (i==0){
+	targetDistance = 24;//set distance
+	if (targetDistance>0)
+		motor[rightDrive] = 127;
+		motor[leftDrive] = 127;
+	if (targetDistance<0)
+		motor[rightDrive] = -127;
+		motor[leftDrive] = -127;
+	sleep(a);
+	i++;
+}
+
+i=0;
+while (i==0){
+	degreesRotate = -90;//set rotation degrees
+	if (degreesRotate>0)
+		motor[rightDrive] = -127;
+		motor[leftDrive] = 127;
+	if (degreesRotate<0)
+		motor[rightDrive] = 127;
+		motor[leftDrive] = -127;
+		
+	sleep(b);
+	i++;
+}
+
+i = 0;
+while (i==0){
+	targetDistance = 12;//set distance
+	if (targetDistance>0)
+		motor[rightDrive] = 127;
+		motor[leftDrive] = 127;
+	if (targetDistance<0)
+		motor[rightDrive] = -127;
+		motor[leftDrive] = -127;
+	sleep(a);
+	i++;
+}
+}//end task move
+
+
+task fire(){
+	while(time1[T1]<6000){
+	motor[intake] = 127;
+	}
+	clearTimer(T1);
+	//accelerate flyeheel over 5 seconds	
+	while(time1[T2]<5000){
 		for(int i = 0; i <= 5; i++){
-			motor[flywheel1] = (i*25.4);
-			motor[flywheel2] = (i*25.4);
+			motor[flywheel1] = (i*(127/5));
+			motor[flywheel2] = (i*(127/5));
 			wait1Msec(1000);
 		}
 	}
-	clearTimer(T3);
+	clearTimer(T2);
 	motor[flywheel1] = 127;
-	motor[flywheel2] = 127;//not sure if this will keep the motors running until otherwise told
+	motor[flywheel2] = 127;
 	
-	//forward 2 tiles and collect ball
-	motor[rightDrive] = 127;
-	motor[leftDrive] = 127;
-	motor[intake] = 127;
-
-	wait1Msec(2300);
-
-	//backward 2 tiles
-	motor[rightDrive] = -127;
-	motor[leftDrive] = -127;
-	motor [intake] = 63;
-
-	wait1Msec(2300);
-	
-	//turn 90 degrees
-	//color dependent
-	motor[rightDrive] = 127;
-	motor[leftDrive] = -127;
-
-	wait1Msec(500);//theta
-
-	//forward 2 tiles
-	while(time1[T1]<2300){
-		motor[rightDrive] = 127;
-		motor[leftDrive] = 127;
-	}
-	clearTimer(T1);
+	sleep(1000);
 	
 	//fire
-	while(time1[T2]<2300){
-		motor[intake] = 127;
-		motor[indexer] = 127;
-		motor[flywheel1] = 127;
-		motor[flywheel2] = 127;
-	}
-	clearTimer(T2);
+	motor[intake] = 127;
+	motor[indexer] = 127;
+	motor[flywheel1] = 127;
+	motor[flywheel2] = 127;
+	sleep(2300);
 	
 	wait1Msec(2000);
 	
 	//deaccelerate flywheel over 10 seconds	
-	while(time1[T4]<10000){
+	while(time1[T2]<10000){
 		for(int i = 10; i >= 0; i--){
-			motor[flywheel1] = (i*12.7);
-			motor[flywheel2] = (i*12.7);
+			motor[flywheel1] = (i*(127/10));
+			motor[flywheel2] = (i*(127/10));
 			wait1Msec(1000);
 		}
 	}
-	//clearTimer[T4];????
+	clearTimer(T2);
 	
-	//backward 1 tile
-	motor[rightDrive] = -127;
-	motor[leftDrive] = -127;
+}//end task fire
 
-	wait1Msec(1150);
-	
-	//turn -90 degrees
-	//color dependent
-	motor[rightDrive] = -127;
-	motor[leftDrive] = 127;
-	wait1Msec(500);//theta
-
-	//forward 2 tiles and flip cap
-	motor[rightDrive] = 127;
-	motor[leftDrive] = 127;
-	motor[intake] = 127;
-
-	wait1Msec(2300);
-	
-	//turn 90 degrees
-	motor[rightDrive] = 127;
-	motor[leftDrive] = -127;
-	
-	wait1Msec(500);//theta
-	
-	//forward 1 tile
-	motor[rightDrive] = 127;
-	motor[leftDrive] = 127;
-
-	wait1Msec(1150);
-	
-	//backward 1 tile
-	motor[rightDrive] = -127;
-	motor[leftDrive] = -127;
-
-	wait1Msec(1150);
-	
-	//swerve
-	motor[rightDrive] = -127;
-	motor[leftDrive] = -63;
-
-	wait1Msec(500);//theta2
-	
-	motor[rightDrive] = -63;
-	motor[leftDrive] = -127;
-
-	wait1Msec(500);//theta2
-	
-	//park
-	motor[rightDrive] = -127;
-	motor[leftDrive] = -127;
-
-	wait1Msec(1000);//tbd
-	
-}
-  // ..........................................................................
+task autonomous(){
+	startTask (move);
+	startTask (fire);
+	sleep(15000);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -190,8 +268,7 @@ task autonomous()
 
 task usercontrol()
 {
-  // User control code here, inside the loop
-
+ 
   while (true)
   {
     // This is the main execution loop for the user control program.
@@ -203,7 +280,6 @@ task usercontrol()
     // update your motors, etc.
     // ........................................................................
 
-    // Remove this function call once you have "real" code.
-    UserControlCodePlaceholderForTesting();
+    sleep(20);
   }
 }
