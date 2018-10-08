@@ -1,0 +1,94 @@
+task experiments{
+		
+	
+	//deaccelerate flywheel over 10 seconds	
+	for(int i = 10; i >= 0; i--){
+		motor[flywheel1] = (i*12.7);
+		motor[flywheel2] = (i*12.7);
+		wait1Msec(1000);
+	}
+	
+	//deaccelerate flywheel to 50% over 5 seconds	
+	for(int i = 10; i >= 5; i--){
+		motor[flywheel1] = (i*12.7);
+		motor[flywheel2] = (i*12.7);
+		wait1Msec(1000);
+	}
+	
+	//accelerate flyeheel over 5 seconds	
+	for(int i = 0; i <= 5; i++){
+		motor[flywheel1] = (i*25.4);
+		motor[flywheel2] = (i*25.4);
+		wait1Msec(1000);
+	}
+	
+	//testing test
+	//if some button is pushed...
+	startTask(test);
+	
+	startTask(usercontrol);
+	startTask(experiments);
+	//testing autonomous
+	//if some button is pushed...
+	startTask(autonomous);
+	wait1Msec(15000);
+	stopTask(autonomous);
+	
+
+
+/*4 in wheel, 12 ft long arena, 6 tiles, 24 in per tile
+Circum = 4pi move 2 tiles = 48/4pi = #rev = 12/pi = 3.819revs
+100 rpm/ 60 = 5/3 rps
+3.819*(3/5) = 2.29
+2.291831181 secs per 2 tiles
+2.3 secs per 2 tiles
+1.14591559 secper tile
+1.15 sec per tile
+*/
+
+
+//code to input distance/degrees to rotate instead of raw time
+//double == float
+float diameter = 4;
+float circumfrence = diameter*PI;
+
+float targetDistance = 1;//paceholder value
+float linearRevs = targetDistance/circumfrence;
+float a = linearRevs*(3/5);//convert rpm to sec
+a = a*1000;//convert to Msec
+
+int i = 0;
+i = 0;
+while (i==0){
+	targetDistance = 24;//set distance
+	if (targetDistance>0)
+		motor[rightDrive] = 127;
+		motor[leftDrive] = 127;
+	if (targetDistance<0)
+		motor[rightDrive] = -127;
+		motor[leftDrive] = -127;
+	wait1Msec(a);
+	i++;
+}
+
+float robotRadius = 8;
+float degreesRotate = 1;
+float arc = (robotRadius*2*PI)/(360/degreesRotate);
+float arcRevs= arc/circumfrence;
+float b = arcRevs*(3/5);
+b = b*1000;
+
+i=0;
+while (i==0){
+	degreesRotate = 90;//set rotation dergrees
+	if (degreesRotate>0)
+		motor[rightDrive] = -127;
+		motor[leftDrive] = 127;
+	if (degreesRotate<0)
+		motor[rightDrive] = 127;
+		motor[leftDrive] = -127;
+		
+	wait1Msec(b);
+	i++;
+}
+
