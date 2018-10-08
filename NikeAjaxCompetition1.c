@@ -66,7 +66,7 @@ Circum = 4pi move 2 tiles = 48/4pi = #rev = 12/pi = 3.819revs
 3.819*(3/5) = 2.29
 2.291831181 secs per 2 tiles
 2.3 secs per 2 tiles
-1.14591559 secper tile
+1.14591559 sec per tile
 1.15 sec per tile
 */
 
@@ -236,14 +236,12 @@ task fire(){
 	motor[flywheel2] = 127;
 	sleep(2300);
 	
-	wait1Msec(2000);
-	
 	//deaccelerate flywheel over 10 seconds	
 	while(time1[T2]<10000){
 		for(int i = 10; i >= 0; i--){
 			motor[flywheel1] = (i*(127/10));
 			motor[flywheel2] = (i*(127/10));
-			wait1Msec(1000);
+			sleep(1000);
 		}
 	}
 	clearTimer(T2);
