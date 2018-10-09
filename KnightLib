@@ -1,0 +1,33 @@
+void switchOnButton(bool up, bool down, int motori, int power) {
+	if(up) {
+		motor[motori] = power;
+		} else if(down) {
+		motor[motori] = -power;
+		} else {
+		motor[motori] = 0;
+	}
+}
+void singleJoystickWrite(int val, int motori, int deadzone) {
+	if(val < deadzone || val > -deadzone) {
+		motor[motori] = val;
+	}
+}
+//MOTOR OBJECT
+typedef struct {
+	int port;
+	int power;
+} KnightMotor;
+
+//MOTOR OBJECT FUNCTIONS
+void setMotorPower(KnightMotor* kmotor, int power) {
+		kmotor->power = power;
+}
+int getMotorPower(KnightMotor* kmotor) {
+	return kmotor->power;
+}
+int getMotorPort(KnightMotor* kmotor) {
+	return kmotor->port;
+}
+void flush(KnightMotor* kmotor) {
+	motor[kmotor->port] = kmotor->power;
+}
