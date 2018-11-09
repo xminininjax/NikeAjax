@@ -1,5 +1,3 @@
-#include "robot-config.h"
-#include <cmath>
 vex::brain Brain = vex::brain();
 vex::controller Primary_Controller = vex::controller();
 vex::controller Partner_Controller = vex::controller(vex::controllerType::partner);
@@ -7,11 +5,69 @@ vex::motor DriveLeft = vex::motor(vex::PORT1, vex::gearSetting::ratio18_1, false
 vex::motor DriveRight = vex::motor(vex::PORT2, vex::gearSetting::ratio18_1, true);
 vex::motor Intake = vex::motor(vex::PORT3, vex::gearSetting::ratio18_1, true); 
 vex::motor Indexer = vex::motor(vex::PORT4, vex::gearSetting::ratio18_1, true);
-vex::motor Flywheel1 = vex::motor(vex::PORT5, vex::gearSetting::ratio18_1, true);//lower motor
-//vex::motor Flywheel2 = vex::motor(vex::PORT6, vex::gearSetting::ratio18_1, false);//upper motor
+vex::motor Flywheel1 = vex::motor(vex::PORT5, vex::gearSetting::ratio18_1, false);//lower motor
 vex::motor LiftA = vex::motor(vex::PORT6, vex::gearSetting::ratio18_1, false);
 vex::motor LiftB = vex::motor(vex::PORT7, vex::gearSetting::ratio18_1, true);
-vex::motor Claw = vex::motor(vex::PORT8, vex::gearSetting::ratio18_1, false);
+//port 8 damaged
+vex::motor Claw = vex::motor(vex::PORT9, vex::gearSetting::ratio18_1, false);
+vex::gyro Gyro = vex::gyro(Brain.ThreeWirePort.D);
+#include <cmath>
+
+//vex::drivetrain dt(DriveLeft, DriveRight, (4.125*M_PI), 15.1, vex::distanceUnits::in);
+//vex::drivetrain (motor DriveLeft, motor DriveRight, double circumfrence=4.125*M_PI, double robotWidth=15.1, distanceUnits unit=distanceUnits::in)
+
+namespace math {
+    
+    
+    class Translation2d {
+        public:
+            double x;
+            double y;
+        
+            Translation2d(double x, double y);
+            Translation2d(Translation2d& translation);
+            ~Translation2d();
+            
+    };
+    class Rotation {
+        public:
+            double sin;
+            double cos;
+            
+            Rotation(); //identity constructor
+            Rotation(double sin, double cos);
+            Rotation(Rotation& rotation);
+            ~Rotation();
+        
+            void rotateBy(Rotation& rotation);
+        
+            
+    };
+    class Pose2d {
+        public:
+            Translation2d& translation;
+            Rotation& yaw;
+            
+            Pose2d();
+            Pose2d(Translation2d& translation, Rotation& yaw);
+            ~Pose2d();
+        
+            void operator^(Pose2d& pose); //chain
+            void operator+(Translation2d& translation);
+            void operator+(Rotation& yaw);
+    };
+    
+    
+    double hypot(Rotation& rot) {
+        return sqrt(rot.sin * rot.sin + rot.cos * rot.cos);
+    }
+    
+}
+    
+//*****************************************************************************************************************
+
+#include "robot-config.h"
+#include <cmath>
 
 vex::competition    Competition;
 
@@ -52,9 +108,6 @@ void pre_auton( void ) {
     Primary_Controller.Screen.print("Driver Controller");
     Partner_Controller.Screen.print("Gunner Controller");
     
-    //Motor1.setStopping(vex::brakeType::coast);
-    //Motor2.setStopping(vex::brakeType::coast);
-    
     LiftA.resetRotation();
     LiftB.resetRotation();
     Claw.resetRotation();
@@ -65,7 +118,7 @@ void pre_auton( void ) {
         //when we tell it to, which means we can guarantee it won't redraw in the middle of one of our
         //other drawing commands and give a partial picture. Getting partial pictures on redraws is
         //what causes flickering when drawing without this buffering scheme.
-    while (true) {
+    /*while (!true) {
         Brain.Screen.clearScreen(); //clears the back buffer for drawing, default clear color is black
         draw_grid(); //draws our grid to the back buffer
         Brain.Screen.render(); //flips the back buffer to the screen all at once, preventing flickering
@@ -106,8 +159,11 @@ void pre_auton( void ) {
         } else {
             vex::task::sleep(20);
         }
+    }*/
+    while(true) {
+       Brain.Screen.printAt(10,20,"%f%%",Gyro.value(rotationUnits::deg));
+       Brain.Screen.render();
     }
-    
 }
 
 /*---------------------------------------------------------------------------*/
@@ -121,68 +177,93 @@ void pre_auton( void ) {
 /*---------------------------------------------------------------------------*/
 
 double wheelDiameter = 4.125;
-double circumfrence = wheelDiameter*M_PI;
+double circumference = wheelDiameter*M_PI;
 
-double targetDistance;
-double linearRevs = targetDistance/circumfrence;
+double targetDistance;                                      //Calculates revs to turn from desired drive distance in inches
+double linearRevs = targetDistance/circumference;
 
-double degreesRotate;
+double degreesRotate;                                       //Calculates revs from desired turn angle in degrees
 double robotDiam = 15.1;
 double arc = (robotDiam*M_PI)/(360/degreesRotate);
-double arcRevs = arc/circumfrence;
+double arcRevs = arc/circumference;
 
-int i = 1;
-
-int move(){
+int move(){                                                 //go forward or backward
     while(1){
         DriveLeft.startRotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
         DriveRight.rotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
-        i++;
     return(0);
     }
 }
-int turn(){//+deg = turn right, -deg = turn left
+int turn(){                                                 //+deg = turn right, -deg = turn left
     while(1){
         DriveLeft.startRotateFor(vex::directionType::fwd, arcRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
         DriveRight.rotateFor(vex::directionType::rev, arcRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
-        i++;
     return(0);
     }
 }
 int driveAuto(){
     while(1){
-    switch (i){
-    case 1:{
-        targetDistance  = 25;//fwd 2 tiles
-        vex::task t1a(move);}
-    case 2:{
-        targetDistance  = -25;//backwrd 2 tiles
-        vex::task t1b(move);}
-    case 3:{
-        targetDistance = 2;//fwd 2 in
-        vex::task t1ba(move);}
-    case 4:{
-        degreesRotate = -90;//turn left 90 deg
-        vex::task t1c(turn);}
-    case 5:{
-        targetDistance  = 24;//fwd 2 tiles
-        vex::task t1d(move);}
-    case 6:{
-        targetDistance = -12;//backwrd one tile
-        vex::task t1e(move);}
-    case 7:{
-        degreesRotate = 90;//turn right 90 deg
-        vex::task t1f(turn);}
-    case 8:{
-        targetDistance = 24;//fwd 2 tiles
-        vex::task t1g(move);}
-    case 9:{
-        degreesRotate = -90;//turn left 90 deg
-        vex::task t1h(turn);}
-    case 10:{
-        targetDistance = 12;//fwd one tile
-        vex::task t1i(move);}
-    }
+        
+        Intake.startRotateFor(vex::directionType::fwd, 10, vex::rotationUnits::rev, 100, vex::velocityUnits::pct); 
+        Flywheel1.spin(vex::directionType::fwd, 200, vex::velocityUnits::rpm);
+        
+        targetDistance = 25;                               //fwd 2 tiles
+        DriveLeft.startRotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        DriveRight.rotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        
+        targetDistance = -25;                              //backwrd 2 tiles
+        DriveLeft.startRotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        DriveRight.rotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+    
+        targetDistance = 2;                                 //fwd 2 in
+        DriveLeft.startRotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        DriveRight.rotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+
+        degreesRotate = -89;                                //turn left 89 deg
+        DriveLeft.startRotateFor(vex::directionType::fwd, arcRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        DriveRight.rotateFor(vex::directionType::rev, arcRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        
+        Indexer.rotateFor(vex::directionType::fwd, 1,vex::rotationUnits::rev, 100, vex::velocityUnits::pct);
+        Intake.startRotateFor(vex::directionType::fwd, 1, vex::rotationUnits::rev, 100, vex::velocityUnits::pct);
+        
+        targetDistance = 12;                               //fwd 1 tiles
+        DriveLeft.startRotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        DriveRight.rotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        
+        Indexer.rotateFor(vex::directionType::fwd, 1,vex::rotationUnits::rev, 100, vex::velocityUnits::pct);
+        
+        degreesRotate = -15;                                //turn left 5 deg
+        DriveLeft.startRotateFor(vex::directionType::fwd, arcRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        DriveRight.rotateFor(vex::directionType::rev, arcRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        
+        Flywheel1.spin(vex::directionType::fwd, 25, vex::velocityUnits::pct);
+        
+        targetDistance = 6;                                //fwd .5 tiles
+        DriveLeft.startRotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        DriveRight.rotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        
+        targetDistance = -12;                              //backwrd 1 tile
+        DriveLeft.startRotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        DriveRight.rotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+
+        degreesRotate = 92;                                //turn right 92 deg
+        DriveLeft.startRotateFor(vex::directionType::fwd, arcRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        DriveRight.rotateFor(vex::directionType::rev, arcRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        
+        targetDistance = 24;                               //fwd 2 tiles
+        DriveLeft.startRotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        DriveRight.rotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+            
+        degreesRotate = -90;                               //turn left 90 deg
+        DriveLeft.startRotateFor(vex::directionType::fwd, arcRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        DriveRight.rotateFor(vex::directionType::rev, arcRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        
+        targetDistance = 12;                               //fwd one tile
+        DriveLeft.startRotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        DriveRight.rotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, 100, vex::velocityUnits::rpm);
+        
+        Flywheel1.stop(vex::brakeType::coast);
+    
     return(0);
     }
 }
@@ -204,14 +285,11 @@ int indexerAuto(){
 int flywheelAuto(){
     while(1){
         Flywheel1.spin(vex::directionType::fwd, 200, vex::velocityUnits::rpm);
-       // Flywheel2.spin(vex::directionType::fwd, 200, vex::velocityUnits::rpm);
         vex::task::sleep(7500);
         Flywheel1.spin(vex::directionType::fwd, 25, vex::velocityUnits::pct);
-       // Flywheel2.spin(vex::directionType::fwd, 25, vex::velocityUnits::pct); 
         vex::task::sleep(2000);
         Flywheel1.stop(vex::brakeType::coast);
-       // Flywheel2.stop(vex::brakeType::coast);
-    return(0);
+       return(0);
     }
 }
 
@@ -226,7 +304,7 @@ int fireAuto(){
     
 void autonomous( void ) {
   // ..........................................................................
-  
+    vex::task t1(driveAuto);
   // ..........................................................................
 }
 
@@ -242,14 +320,7 @@ void autonomous( void ) {
 
 //dt.driveFor(vex::directionType::fwd,24,vex::distanceUnits::mm, 100, vex::velocityUnits::rpm);
 void testAutonomous(){
-    vex::task t1(driveAuto);
-    /*
-    while(1){
-        //vex::task t2(fireAuto);
-        while(1){
-            //vex::task t3(liftAuto);
-        }
-    }*/
+    
 }
 
 void intake(){
@@ -260,48 +331,54 @@ void stopIntake(){
     Indexer.stop(vex::brakeType::brake);
 }
 void outtake(){
-    Indexer.rotateFor(120,vex::rotationUnits::deg, 100,vex::velocityUnits::pct);
-    Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+    Indexer.rotateFor(vex::directionType::fwd, 120,vex::rotationUnits::deg, 100,vex::velocityUnits::pct);
+    Intake.rotateFor(vex::directionType::rev,3, vex::rotationUnits::rev, 100, vex::velocityUnits::pct);
 }
 void fire(){
-    Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct); 
-    Indexer.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct); 
+    Indexer.startRotateFor(vex::directionType::fwd, 360, vex::rotationUnits::deg, 100, vex::velocityUnits::pct); 
+    Intake.rotateFor(vex::directionType::fwd, 180, vex::rotationUnits::deg, 100, vex::velocityUnits::pct); 
 }
 void speedUp(){
     Flywheel1.spin(vex::directionType::fwd, 200, vex::velocityUnits::rpm);
-    //Flywheel2.spin(vex::directionType::fwd, 200, vex::velocityUnits::rpm);
 }
 void slowDown(){
-    Flywheel1.spin(vex::directionType::fwd, 25, vex::velocityUnits::pct);
-    //Flywheel2.spin(vex::directionType::fwd, 25, vex::velocityUnits::pct);    
+    Flywheel1.spin(vex::directionType::fwd, 25, vex::velocityUnits::pct);   
 }
-void liftGround(){
+void liftGround(){                   //tucks claw while going down to prevent damage and allow for immediate movement awat from post
     LiftA.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
     LiftB.rotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    /*
+    vex::task::sleep(1000);
+    Claw.rotateTo(0, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+    
+    Claw.stop(vex::brakeType::hold);
+    LiftA.rotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftB.rotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    */
     LiftA.stop(vex::brakeType::hold);
     LiftB.stop(vex::brakeType::hold);
 }
 void liftLowPost(){
-    LiftA.startRotateTo(900, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
-    LiftB.rotateTo(900, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftA.startRotateTo(1400, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftB.rotateTo(1400, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
     LiftA.stop(vex::brakeType::hold);
     LiftB.stop(vex::brakeType::hold);
 }
 void liftHighPost(){
-    LiftA.startRotateTo(1900, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
-    LiftB.rotateTo(1900, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftA.startRotateTo(1800, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftB.rotateTo(1800, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
     LiftA.stop(vex::brakeType::hold);
     LiftB.stop(vex::brakeType::hold);
 }
 void clawDown(){
-    Claw.rotateTo(210, vex::rotationUnits::deg, -50, vex::velocityUnits::pct);
+    Claw.rotateTo(1027, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
     Claw.stop(vex::brakeType::hold);
 }
-void clawUp(){
-    Claw.rotateTo(90, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+void clawUp(){                                              //macro to flip caps to opposite color, raises claw
+    Claw.rotateTo(550, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
     vex::task::sleep(100);
-    Claw.rotateTo(160, vex::rotationUnits::deg, -100, vex::velocityUnits::pct);
-    Claw.rotateTo(120, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+    Claw.rotateTo(630, vex::rotationUnits::deg, 25, vex::velocityUnits::pct);
+    Claw.rotateTo(600, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
     Claw.stop(vex::brakeType::hold);
 }
 void clawHide(){
@@ -311,68 +388,70 @@ void clawHide(){
 void stopAll(){
     DriveLeft.stop(vex::brakeType::brake);
     DriveRight.stop(vex::brakeType::brake);
-    Intake.stop(vex::brakeType::coast);
-    Indexer.stop(vex::brakeType::coast);
+    Intake.stop(vex::brakeType::brake);
+    Indexer.stop(vex::brakeType::brake);
     Flywheel1.stop(vex::brakeType::coast);
-    //Flywheel2.stop(vex::brakeType::coast);
-    LiftA.stop(vex::brakeType::hold);
-    LiftB.stop(vex::brakeType::hold);
-    Claw.stop(vex::brakeType::hold);
+    LiftA.stop(vex::brakeType::brake);
+    LiftB.stop(vex::brakeType::brake);
+    Claw.stop(vex::brakeType::brake);
 }
 
 void usercontrol( void ) {
-     
-  while (true) {
-   
+  while (true) {   
     // ........................................................................
-      DriveLeft.spin(vex::directionType::fwd, (Primary_Controller.Axis3.value()*1), vex::velocityUnits::pct);
-      DriveRight.spin(vex::directionType::fwd, (Primary_Controller.Axis2.value()*1), vex::velocityUnits::pct);
-
-      Primary_Controller.ButtonL1.pressed(intake);
+      //tank drive controls
+      
+      if((Primary_Controller.Axis3.value()<10)||(Primary_Controller.Axis3.value()>-10))
+        DriveLeft.spin(vex::directionType::fwd, (Primary_Controller.Axis3.value()*.75), vex::velocityUnits::pct);
+        
+      if((Primary_Controller.Axis2.value()<10)||(Primary_Controller.Axis2.value()>-10))
+        DriveRight.spin(vex::directionType::fwd, (Primary_Controller.Axis2.value()*.75), vex::velocityUnits::pct);
+              
+      /*
+      //fine-tuning lift and claw with horizontal joystick axis
+      if((Primary_Controller.Axis4.value()<10)||(Primary_Controller.Axis4.value()>-10)){
+        LiftA.spin(vex::directionType::fwd, (Primary_Controller.Axis4.value()*1), vex::velocityUnits::pct);
+        LiftB.spin(vex::directionType::fwd, (Primary_Controller.Axis4.value()*1), vex::velocityUnits::pct);
+      }
+      else
+      if((Primary_Controller.Axis1.value()<10)||(Primary_Controller.Axis1.value()>-10))
+        Claw.spin(vex::directionType::fwd, (Primary_Controller.Axis1.value()*1), vex::velocityUnits::pct);
+      else
+      */
+          
+      Primary_Controller.ButtonL1.pressed(intake);          //press and hold L1 to intake
       Primary_Controller.ButtonL1.released(stopIntake);
       
-      Primary_Controller.ButtonL2.pressed(outtake);
-      Primary_Controller.ButtonL2.released(stopIntake);
+      Primary_Controller.ButtonL2.pressed(outtake);         //press to regurgitate balls or flip caps-may need multiple presses
+      //Primary_Controller.ButtonL2.released(stopIntake);   
     
-      Primary_Controller.ButtonR2.pressed(fire);
-      Primary_Controller.ButtonR2.released(stopIntake);
+      Primary_Controller.ButtonR2.pressed(fire);            //press to fire 1 ball
+            
+      Primary_Controller.ButtonR1.pressed(speedUp);         //press and hold to achieve max flywheel velocity
+      Primary_Controller.ButtonR1.released(slowDown);       //release to allow flywheel to idle during down time
       
-      Primary_Controller.ButtonR1.pressed(speedUp);
-      Primary_Controller.ButtonR1.released(slowDown);
+      Primary_Controller.ButtonDown.pressed(liftGround);    //sets lift to ground and tucks claw to prevent damage and allow movement
+      Primary_Controller.ButtonLeft.pressed(liftLowPost);   //sets lift to low post height
+      Primary_Controller.ButtonUp.pressed(liftHighPost);    //sets lift to high post height
       
-      Primary_Controller.ButtonDown.pressed(liftGround);
-      Primary_Controller.ButtonLeft.pressed(liftLowPost);
-      Primary_Controller.ButtonUp.pressed(liftHighPost);
-      Primary_Controller.ButtonRight.pressed(clawHide);
-      Primary_Controller.ButtonX.pressed(clawDown);
-      Primary_Controller.ButtonY.pressed(clawUp);
-      
-      Primary_Controller.ButtonB.pressed(stopAll);
-      
-      Primary_Controller.ButtonA.pressed(testAutonomous);
+      Primary_Controller.ButtonX.pressed(clawHide);         //sets claw to tucked starting position to protect the claw in down time
+      Primary_Controller.ButtonA.pressed(clawUp);           //macro - flips cap within claw
+      Primary_Controller.ButtonB.pressed(clawDown);         //sets claw to ground
+            
+      Primary_Controller.ButtonY.pressed(stopAll);          //stop all motors for safety
+      Primary_Controller.ButtonRight.pressed(testAutonomous);//testing testing
 
-      
-
-    vex::task::sleep(20); //Sleep the task for a short amount of time to prevent wasted resources.  
+      vex::task::sleep(20); //sleep the task for a short amount of time to prevent wasted resources.  
     // ........................................................................
-   
-  }        
+   }        
 }
-//
+
 // Main will set up the competition functions and callbacks.
-//
 int main() {
-    
-    //Run the pre-autonomous function. 
     pre_auton();
-    
-    //Set up callbacks for autonomous and driver control periods.
     Competition.autonomous( autonomous );
     Competition.drivercontrol( usercontrol );
-
-              
     while(true) {
       vex::task::sleep(20);
     }    
-    Primary_Controller.ButtonB.pressed(stopAll);  
 }
