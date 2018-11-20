@@ -1,0 +1,443 @@
+#include "robot-config.h"
+#include <cmath>
+
+vex::competition    Competition;
+
+/*---------------------------------------------------------------------------*/
+/*                          Pre-Autonomous Functions                         */
+/*                                                                           */
+/*  You may want to perform some actions before the competition starts.      */
+/*  Do them in the following function.  You must return from this function   */
+/*  or the autonomous and usercontrol tasks will not be started.  This       */
+/*  function is only called once after the cortex has been powered on and    */ 
+/*  not every time that the robot is disabled.                               */
+/*---------------------------------------------------------------------------*/
+
+using namespace vex;
+
+void draw_grid(void) { 
+    Brain.Screen.setPenColor(color::white);
+
+    for (int i = 0; i < 2; i ++) {
+        //this draws vertical lines. The X stays the same but the Y changes:
+        Brain.Screen.drawLine(160*(i+1),0,160*(i+1),240);
+        //this draws horizontal lines. The X changes but the Y stays the same:
+        Brain.Screen.drawLine(0,80*(i+1),480,80*(i+1));
+    }
+}
+
+void draw_touch() {
+    Brain.Screen.setPenColor(color::red);
+    //this draws a circle around the place the user is touching or last touched the LCD
+    Brain.Screen.drawCircle(Brain.Screen.xPosition(),Brain.Screen.yPosition(),30);
+}
+int allianceColor;//red = 1, blue = -1
+void pre_auton( void ) {
+
+    Primary_Controller.Screen.setCursor(0, 0);
+    Partner_Controller.Screen.setCursor(0, 0);
+
+    Primary_Controller.Screen.print("Driver Controller");
+    Partner_Controller.Screen.print("Gunner Controller");
+
+    LiftA.resetRotation();
+    LiftB.resetRotation();
+    Claw.resetRotation();
+
+    Brain.Screen.render(true,false); //set VSync (vertical sync) on, automatic refresh to off
+    //When we call Brain.Screen.render() with no arguments, it will force a redraw of the screen.
+    //With the previous command here we turned off automatic redraws, so the LCD will only redraw
+    //when we tell it to, which means we can guarantee it won't redraw in the middle of one of our
+    //other drawing commands and give a partial picture. Getting partial pictures on redraws is
+    //what causes flickering when drawing without this buffering scheme.
+    while (!true) {
+        Brain.Screen.clearScreen(); //clears the back buffer for drawing, default clear color is black
+        draw_grid(); //draws our grid to the back buffer
+        Brain.Screen.render(); //flips the back buffer to the screen all at once, preventing flickering
+        if (Brain.Screen.pressing()) { //if screen is touched...
+            while (Brain.Screen.pressing()) { //wait until the user stops touching the screen
+                Brain.Screen.clearScreen(); //while waiting, maintain the grid and draw
+                draw_grid();                //a touch indicator around the user's finger
+                draw_touch();
+                Brain.Screen.render();
+            }
+            vex::task::sleep(1000); //wait a second for their hand to get a little further away
+            if (Brain.Screen.yPosition() > 160) {                   //released in bottom third of the screen
+                if (Brain.Screen.xPosition() < 160) {                   //released in left third of the screen
+                    allianceColor = 1;//bottom left
+                } else if (Brain.Screen.xPosition() > 320) {            //released in right third of the screen
+                    allianceColor = -1;//bottom right
+                } else {                                                //released in middle (left-to-right) third of the screen
+                    //bottom middle
+                }
+            } else if (Brain.Screen.yPosition() < 80) {             //released in top third of the screen
+                if (Brain.Screen.xPosition() < 160) {                   //released in left third of the screen
+                    //top left
+                } else if (Brain.Screen.xPosition() > 320) {            //released in right third of the screen
+                    //top right
+                } else {                                                //released in middle (left-to-right) third of the screen
+                    //top middle
+                }
+            } else {                                                //released in middle (top-to-bottom) of the screen
+                if (Brain.Screen.xPosition() < 160) {                   //released in left third of the screen
+                    //middle left
+                } else if (Brain.Screen.xPosition() > 320) {            //released in right third of the screen
+                    //middle right
+                } else {                                                //released in middle (left-to-right) third of the screen
+                    //middle middle
+                }
+            }
+        } else {
+            vex::task::sleep(20);
+        }
+    }
+    while(true) {
+        Brain.Screen.printAt(10,20,"%f%%",Gyro.value(rotationUnits::deg));
+        Brain.Screen.render();
+    }
+}
+
+/*---------------------------------------------------------------------------*/
+/*                                                                           */
+/*                              Autonomous Task                              */
+/*                                                                           */
+/*  This task is used to control your robot during the autonomous phase of   */
+/*  a VEX Competition.                                                       */
+/*                                                                           */
+/*  You must modify the code to add your own robot specific commands here.   */
+/*---------------------------------------------------------------------------*/
+
+double linearMath (double targetDistance){                      //Calculates revs to turn from desired drive distance in inches    
+    double wheelDiameter = 4.125;
+    double circumference = wheelDiameter*M_PI;
+    double linearRevs = targetDistance/circumference;
+    return linearRevs;
+}
+
+void move(double targetDistance, double speed){
+    double linearRevs = linearMath(targetDistance);
+    DriveLeft.startRotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, speed, vex::velocityUnits::rpm);
+    DriveRight.rotateFor(vex::directionType::fwd, linearRevs, vex::rotationUnits::rev, speed, vex::velocityUnits::rpm);
+}
+
+double rotationMath (double degreesRotate){                     //Calculates revs from desired turn angle in degrees
+    double wheelDiameter = 4.125;
+    double circumference = wheelDiameter*M_PI;                                  
+    double robotDiam = 15.1;
+    double arc = (robotDiam*M_PI)/(360/degreesRotate);
+    double arcRevs = arc/circumference;
+    return arcRevs;
+}
+
+void turn(double degreesRotate, double speed){
+    double arcRevs = rotationMath(degreesRotate);
+    DriveLeft.startRotateFor(vex::directionType::fwd, arcRevs, vex::rotationUnits::rev, speed, vex::velocityUnits::rpm);
+    DriveRight.rotateFor(vex::directionType::rev, arcRevs, vex::rotationUnits::rev, speed, vex::velocityUnits::rpm);
+}
+int i;
+void subFire(){
+     Intake.stop(vex::brakeType::brake);
+     Indexer.stop(vex::brakeType::brake);
+     Indexer.rotateFor(vex::directionType::fwd, 180, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+     i = 0;
+}
+void fire(){
+    i = 1;
+    while(i==1){
+        while(IndexerLimit.pressing()==0){
+            Indexer.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct); 
+            Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+        }
+        IndexerLimit.pressed(subFire);                     
+        vex::task::sleep(20);
+    }
+}
+void subRapidFire(){
+     Indexer.stop(vex::brakeType::brake);
+     Intake.spin(vex::directionType::fwd, 50, vex::velocityUnits::pct);  //adjust speed
+     vex::task::sleep(500);
+     Indexer.spin(vex::directionType::fwd, 50, vex::velocityUnits::pct); //adjust speed
+     Intake.spin(vex::directionType::fwd, 50, vex::velocityUnits::pct);  //adjust speed
+     vex::task::sleep(100);
+     move(24,100);
+     i = 0;
+}
+void rapidFire(){                                           //moves forward and fires to quickly toggle high and middle flag
+    i = 1;
+    while(i==1){
+        while(IndexerLimit.pressing()==0){
+            Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+            Indexer.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct); 
+        }
+        IndexerLimit.pressed(subRapidFire);
+        vex::task::sleep(20);
+    }
+}
+
+int driveAuto(){
+    Intake.startRotateFor(vex::directionType::fwd, 10, vex::rotationUnits::rev, 100, vex::velocityUnits::pct); 
+    Flywheel1.spin(vex::directionType::fwd, 200, vex::velocityUnits::rpm);
+    move(48,100);
+    move(-48,100);
+    turn(-80*allianceColor, 100);
+    turn(-9*allianceColor, 50);
+    rapidFire();
+    Flywheel1.spin(vex::directionType::fwd, 25, vex::velocityUnits::pct);
+    turn(-15*allianceColor, 100);
+    move(9, 100);
+    move(-9, 100);
+    Flywheel1.stop(vex::brakeType::coast);
+    turn(104*allianceColor,100);
+    Intake.startRotateFor(vex::directionType::rev, 10, vex::rotationUnits::rev, 100, vex::velocityUnits::pct);
+    move(24, 100);
+    turn(-90*allianceColor,100);
+    move(12,100);
+
+    while(1){
+        vex::task::sleep(20);
+    }
+}
+
+void autonomous( void ) {
+    // ..........................................................................
+    vex::task t1(driveAuto);
+    // ..........................................................................
+}
+
+/*---------------------------------------------------------------------------*/
+/*                                                                           */
+/*                              User Control Task                            */
+/*                                                                           */
+/*  This task is used to control your robot during the user control phase of */
+/*  a VEX Competition.                                                       */
+/*                                                                           */
+/*  You must modify the code to add your own robot specific commands here.   */
+/*---------------------------------------------------------------------------*/
+
+void testAutonomous(){
+
+}
+
+void intake(){
+    Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct); 
+}
+void stopIntake(){
+    Intake.stop(vex::brakeType::brake);
+    Indexer.stop(vex::brakeType::brake);
+}
+void outtake(){
+    Indexer.rotateFor(vex::directionType::fwd, 120,vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    Intake.startRotateFor(vex::directionType::rev,3, vex::rotationUnits::rev, 100, vex::velocityUnits::pct);
+}
+
+void speedUp(){
+    Flywheel1.spin(vex::directionType::fwd, 200, vex::velocityUnits::rpm);
+}
+void slowDown(){
+    Flywheel1.spin(vex::directionType::fwd, 25, vex::velocityUnits::pct);   
+}
+
+void liftGround(){                                          //macro based on 4 possible scenarios
+    //color up, low post
+    if((LiftA.rotation(vex::rotationUnits::deg)<1700)&&(Claw.rotation(vex::rotationUnits::deg)>700)){
+        LiftA.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        LiftB.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        vex::task::sleep(250);
+        Claw.rotateTo(600, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+        LiftA.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        LiftB.rotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        LiftA.stop(vex::brakeType::hold);
+        LiftB.stop(vex::brakeType::hold);
+        Claw.stop(vex::brakeType::hold);
+    }
+    //color down, low post    
+    if((LiftA.rotation(vex::rotationUnits::deg)<1700)&&(Claw.rotation(vex::rotationUnits::deg)<700)){
+        LiftA.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        LiftB.rotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        LiftA.stop(vex::brakeType::hold);
+        LiftB.stop(vex::brakeType::hold);
+    }
+    //color up, high post
+    if((LiftA.rotation(vex::rotationUnits::deg)>1700)&&(Claw.rotation(vex::rotationUnits::deg)<700)){
+        LiftA.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        LiftB.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        vex::task::sleep(500);
+        Claw.rotateTo(0, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+        LiftA.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        LiftB.rotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        LiftA.stop(vex::brakeType::hold);
+        LiftB.stop(vex::brakeType::hold);
+        Claw.stop(vex::brakeType::hold);
+    }
+    //color down, high post
+    if((LiftA.rotation(vex::rotationUnits::deg)>1700)&&(Claw.rotation(vex::rotationUnits::deg)>700)){
+        LiftA.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        LiftB.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        vex::task::sleep(1000);
+        Claw.rotateTo(0, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+        LiftA.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        LiftB.rotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+        LiftA.stop(vex::brakeType::hold);
+        LiftB.stop(vex::brakeType::hold);
+        Claw.stop(vex::brakeType::hold);
+    }
+
+    /*
+    LiftA.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftB.rotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftA.stop(vex::brakeType::hold);
+    LiftB.stop(vex::brakeType::hold);
+    */
+}
+void liftLowPost(){
+    LiftA.startRotateTo(1400, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftB.rotateTo(1400, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftA.stop(vex::brakeType::hold);
+    LiftB.stop(vex::brakeType::hold);
+}
+void liftHighPost(){
+    LiftA.startRotateTo(1900, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftB.rotateTo(1900, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftA.stop(vex::brakeType::hold);
+    LiftB.stop(vex::brakeType::hold);
+}
+void liftSetLow(){
+    Claw.startRotateTo(0, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+    LiftA.startRotateTo(1300, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftB.rotateTo(1300, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftA.stop(vex::brakeType::hold);
+    LiftB.stop(vex::brakeType::hold);
+    Claw.stop(vex::brakeType::hold);
+}
+void liftSetHigh(){
+    Claw.startRotateTo(0, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+    LiftA.startRotateTo(1800, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftB.rotateTo(1800, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftA.stop(vex::brakeType::hold);
+    LiftB.stop(vex::brakeType::hold);
+    Claw.stop(vex::brakeType::hold);
+}
+void flip(){
+    LiftA.startRotateFor(100, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftB.rotateFor(100, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftA.stop(vex::brakeType::hold);
+    LiftB.stop(vex::brakeType::hold);
+    Claw.rotateTo(550, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+    vex::task::sleep(100);
+    Claw.rotateTo(630, vex::rotationUnits::deg, 25, vex::velocityUnits::pct);
+    Claw.rotateTo(600, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+    Claw.stop(vex::brakeType::hold);
+    LiftA.startRotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftB.rotateTo(0, vex::rotationUnits::deg, 100, vex::velocityUnits::pct);
+    LiftA.stop(vex::brakeType::hold);
+    LiftB.stop(vex::brakeType::hold);
+}
+void clawDown(){
+    Claw.rotateTo(1027, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+    Claw.stop(vex::brakeType::hold);
+}
+void clawUp(){                                              //macro to flip caps to opposite color, raises claw
+    Claw.rotateTo(550, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+    vex::task::sleep(100);
+    Claw.rotateTo(630, vex::rotationUnits::deg, 25, vex::velocityUnits::pct);
+    Claw.rotateTo(600, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+    Claw.stop(vex::brakeType::hold);
+}
+void clawStasis(){
+    Claw.rotateTo(900, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+    Claw.stop(vex::brakeType::hold);
+}  
+void clawHide(){
+    Claw.rotateTo(0, vex::rotationUnits::deg, 50, vex::velocityUnits::pct);
+    Claw.stop(vex::brakeType::hold);
+}
+void stopAll(){
+    DriveLeft.stop(vex::brakeType::brake);
+    DriveRight.stop(vex::brakeType::brake);
+    Intake.stop(vex::brakeType::brake);
+    Indexer.stop(vex::brakeType::brake);
+    Flywheel1.stop(vex::brakeType::coast);
+    LiftA.stop(vex::brakeType::brake);
+    LiftB.stop(vex::brakeType::brake);
+    Claw.stop(vex::brakeType::brake);
+}
+
+void usercontrol( void ) {
+    while (true) {   
+        // ........................................................................
+        //tank drive controls
+        
+        //Primary
+        if((Primary_Controller.Axis3.value()>5)||(Primary_Controller.Axis3.value()<-5))//deadzone
+            DriveLeft.spin(vex::directionType::fwd, (Primary_Controller.Axis3.value()*1), vex::velocityUnits::pct);
+        else
+            DriveLeft.stop(vex::brakeType::brake);
+        if((Primary_Controller.Axis2.value()>5)||(Primary_Controller.Axis2.value()<-5))//deadzone
+            DriveRight.spin(vex::directionType::fwd, (Primary_Controller.Axis2.value()*1), vex::velocityUnits::pct);
+        else
+            DriveRight.stop(vex::brakeType::brake);
+        
+        //Partner
+        if((Partner_Controller.Axis2.value()>5)||(Partner_Controller.Axis2.value()<-5))//deadzone
+            DriveLeft.spin(vex::directionType::rev, (Partner_Controller.Axis2.value()*1), vex::velocityUnits::pct);
+        else
+            DriveLeft.stop(vex::brakeType::brake);
+        if((Partner_Controller.Axis3.value()>5)||(Partner_Controller.Axis3.value()<-5))//deadzone
+            DriveRight.spin(vex::directionType::rev, (Partner_Controller.Axis3.value()*1), vex::velocityUnits::pct);
+        else
+            DriveRight.stop(vex::brakeType::brake);
+        
+        /*
+        //fine-tuning lift and claw with horizontal joystick axis
+        if((Primary_Controller.Axis4.value()<10)||(Primary_Controller.Axis4.value()>-10)){
+        LiftA.spin(vex::directionType::fwd, (Primary_Controller.Axis4.value()*1), vex::velocityUnits::pct);
+        LiftB.spin(vex::directionType::fwd, (Primary_Controller.Axis4.value()*1), vex::velocityUnits::pct);
+        }
+        else
+        if((Primary_Controller.Axis1.value()<10)||(Primary_Controller.Axis1.value()>-10))
+          Claw.spin(vex::directionType::fwd, (Primary_Controller.Axis1.value()*1), vex::velocityUnits::pct);
+        else
+        */
+
+        if(aimAssist.pressing()){
+            if(((LiftA.rotation(vex::rotationUnits::deg)<1350)&&(LiftA.rotation(vex::rotationUnits::deg)>1250))||((LiftA.rotation(vex::rotationUnits::deg)<1850)&&(LiftA.rotation(vex::rotationUnits::deg)>1750))){
+                flip();
+            }else
+                liftGround();
+        }
+
+        Primary_Controller.ButtonL1.pressed(intake);          //press and hold L1 to intake
+        Primary_Controller.ButtonL1.released(stopIntake);
+
+        Primary_Controller.ButtonL2.pressed(outtake);         //press to regurgitate balls or flip caps-may need multiple presses
+
+        Primary_Controller.ButtonR2.pressed(fire);            //press to fire 1 ball
+
+        Primary_Controller.ButtonR1.pressed(speedUp);         //press and hold to achieve max flywheel velocity
+        Primary_Controller.ButtonR1.released(slowDown);       //release to allow flywheel to idle during down time
+
+        Primary_Controller.ButtonDown.pressed(liftGround);    //sets lift to ground and tucks claw to prevent damage and allow movement
+        Primary_Controller.ButtonLeft.pressed(liftLowPost);   //sets lift to low post height
+        Primary_Controller.ButtonUp.pressed(liftHighPost);    //sets lift to high post height
+
+        Primary_Controller.ButtonX.pressed(clawHide);         //sets claw to tucked starting position to protect the claw in down time
+        Primary_Controller.ButtonA.pressed(clawUp);           //macro - flips cap within claw
+        Primary_Controller.ButtonB.pressed(clawDown);         //sets claw to ground
+
+        Primary_Controller.ButtonY.pressed(stopAll);          //stop all motors for safety
+        Primary_Controller.ButtonRight.pressed(testAutonomous);//testing testing
+
+        vex::task::sleep(20); //sleep the task for a short amount of time to prevent wasted resources.  
+        // ........................................................................
+    }        
+}
+
+// Main will set up the competition functions and callbacks.
+int main() {
+    pre_auton();
+    Competition.autonomous( autonomous );
+    Competition.drivercontrol( usercontrol );
+    while(true) {
+        vex::task::sleep(20);
+    }    
+}
